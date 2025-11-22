@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if not user %}
+<div class="hero-section">
+    <p class="hero-subtitle">Connect with Spotify and we will assemble a running playlist that matches your stride.</p>
+
+    {% if not configured %}
+    <div class="flash flash-error" style="margin-bottom: 1.5rem;">
+        Provide <code>SPOTIPY_CLIENT_ID</code> and <code>SPOTIPY_CLIENT_SECRET</code> in your <code>.env</code> file.
+    </div>
+    {% endif %}
+
+    <a class="btn-primary" href="{{ url_for('login') }}">Connect with Spotify</a>
+</div>
+{% else %}
+
+<div id="generator-section" class="card">
+    <form class="generator" onsubmit="startGeneration(event)">
+        <div class="form-group">
+            <label for="cadence">Cadence (steps per minute)</label>
+            <select id="cadence" name="cadence" required>
+                {% for option in cadence_options %}
+                <option value="{{ option }}" {% if selected_preferences and selected_preferences.cadence==option
+                    %}selected{% endif %}>
+                    {{ option }} BPM
+                </option>
+                {% endfor %}
+            </select>
+            <p class="helper-text">For a 160 cadence, your playlist will include songs from 160 to 169 BPM, up to +9
+                above your pace to help you gradually run better.</p>
+        </div>
+
+        <button id="gen-btn" type="submit" class="btn-primary btn-block">Generate Playlist</button>
+    </form>
+</div>
+
+<!-- Loader UI -->
+<div id="loader-section" class="loader-container hidden">
+    <div class="spinner"></div>
+    <ul id="status-list" class="status-list">
+        <!-- Status items will appear here -->
+    </ul>
+</div>
+
+<!-- Error UI -->
+<div id="error-section" class="hidden" style="width: 100%; max-width: 600px; margin-top: 2rem;">
+    <div class="flash flash-error">
+        <p id="error-message">Oops — something hiccuped. The playlist run had to stop. Give it another shot!</p>
+    </div>
+    <button onclick="resetUI()" class="btn-secondary btn-block" style="margin-top: 1rem;">Try Again</button>
+</div>
+
+<!-- Success UI -->
+<div id="success-section" class="playlist-result hidden">
+    <div class="card" style="padding: 1.5rem;">
+        <iframe id="playlist-embed" width="100%" height="380" frameborder="0" allowtransparency="true"
+            allow="encrypted-media" style="border-radius: 12px;"></iframe>
+
+        <div class="playlist-actions">
+            <a id="playlist-link" class="btn-secondary btn-block" href="#" target="_blank" rel="noopener noreferrer">
+                Open Playlist on Spotify
+            </a>
+            <button onclick="resetUI()" class="btn-ghost btn-block">Make Another</button>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+<script>
+    function startGeneration(event) {
+        event.preventDefault();
+
+        const cadence = document.getElementById('cadence').value;
+        const btn = document.getElementById('gen-btn');
+        const generatorSection = document.getElementById('generator-section');
+        const loaderSection = document.getElementById('loader-section');
+        const statusList = document.getElementById('status-list');
+        const errorSection = document.getElementById('error-section');
+        const successSection = document.getElementById('success-section');
+
+        // Reset state
+        statusList.innerHTML = '';
+        errorSection.classList.add('hidden');
+        successSection.classList.add('hidden');
+
+        // Show loader, disable button
+        btn.disabled = true;
+        btn.innerText = 'Cooking your playlist...';
+
+        // Hide generator card to focus on progress
+        generatorSection.classList.add('hidden');
+        loaderSection.classList.remove('hidden');
+
+        // Start SSE
+        const evtSource = new EventSource(`/generate_stream?cadence=${cadence}`);
+
+        evtSource.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'status') {
+                const li = document.createElement('li');
+                li.className = 'status-item fade-in';
+                li.innerText = data.message;
+                statusList.appendChild(li);
+                // Auto scroll to bottom
+                statusList.scrollTop = statusList.scrollHeight;
+            } else if (data.type === 'done') {
+                evtSource.close();
+                loaderSection.classList.add('hidden');
+
+                document.getElementById('playlist-embed').src = data.embed_url;
+                document.getElementById('playlist-link').href = data.playlist_url;
+
+                successSection.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerText = 'Generate Playlist';
+            } else if (data.type === 'error') {
+                evtSource.close();
+                loaderSection.classList.add('hidden');
+                document.getElementById('error-message').innerText = data.message;
+                errorSection.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerText = 'Generate Playlist';
+            }
+        };
+
+        evtSource.onerror = function (err) {
+            console.error("EventSource failed:", err);
+            evtSource.close();
+            loaderSection.classList.add('hidden');
+            errorSection.classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerText = 'Generate Playlist';
+        };
+    }
+
+    function resetUI() {
+        document.getElementById('generator-section').classList.remove('hidden');
+        document.getElementById('error-section').classList.add('hidden');
+        document.getElementById('success-section').classList.add('hidden');
+        document.getElementById('loader-section').classList.add('hidden');
+        document.getElementById('status-list').innerHTML = '';
+
+        const btn = document.getElementById('gen-btn');
+        btn.disabled = false;
+        btn.innerText = 'Generate Playlist';
+    }
+</script>
+{% endblock %}

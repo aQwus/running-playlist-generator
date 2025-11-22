@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Running Playlist Generator{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <header class="site-header">
+        <div class="header-content">
+            <!-- Left: Empty for balance or Logo if needed -->
+            <div style="width: 100px;"></div>
+
+            <!-- Center: Title -->
+            <div class="header-center">
+                <div class="header-title">Running Playlist Generator</div>
+                <div class="header-subtitle">Run better with songs that match your cadence</div>
+            </div>
+
+            <!-- Right: User Info -->
+            <div class="user-info">
+                {% if user %}
+                <span>{{ user.display_name }}</span>
+                <a class="btn-logout" href="{{ url_for('logout') }}">Logout</a>
+                {% else %}
+                <div style="width: 60px;"></div>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=True) %}
+        {% if messages %}
+        <div class="flash-group">
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-content">
+            <p class="footer-text">Built by Super Trainer.<br>Super Trainer is an AI coach that delivers personalized
+                running guidance, built on insights from top coaches.</p>
+            <a href="https://supertrainer.framer.website/" target="_blank" class="footer-link">
+                Learn more <span>&rarr;</span>
+            </a>
+        </div>
+    </footer>
+</body>
+
+</html>

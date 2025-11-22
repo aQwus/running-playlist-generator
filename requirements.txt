@@ -1,0 +1,6 @@
+Flask>=2.0
+spotipy>=2.24.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+gunicorn
+
